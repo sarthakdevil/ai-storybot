@@ -1,0 +1,8 @@
+flask
+flask-cors
+requests
+postgres
+psycopg2
+chromadb
+chroma-sdk
+google.generativeai
