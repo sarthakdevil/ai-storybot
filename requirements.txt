@@ -6,3 +6,4 @@ psycopg2
 chromadb
 chroma-sdk
 google.generativeai
+gdown
