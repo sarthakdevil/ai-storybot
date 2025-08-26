@@ -182,16 +182,12 @@ db = None
 def initialize_database():
     global db
     try:
-        # Try the primary database path first
-        primary_path = os.path.join(BASE_DIR, "api", "chroma_database_edumate")
-        if os.path.exists(primary_path):
-            db = load_chroma_collection(path=primary_path, name="reviews_collections")
-        else:
-            # Fallback to the secondary path
-            fallback_path = os.path.join(BASE_DIR, "chroma_database")
-            db = load_chroma_collection(path=fallback_path, name="reviews_collections")
-            
+        # Point to the extracted ChromaDB collection
+        db_path = os.path.join(BASE_DIR, "chroma_database_edumate")
+        db = load_chroma_collection(path=db_path, name="edumate")
         print("Database initialized successfully!")
+        print(f"Collection name: {db.name}")
+        print(f"Number of items in collection: {db.count()}")
         return True
         
     except Exception as e:
