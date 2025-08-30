@@ -173,8 +173,21 @@ def generate_answer(db, query, session_id, token_id):
         return "I'm sorry, I encountered an error while processing your request. Please try again."
 
 # Initialize Flask app
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001", 
+    "http://127.0.0.1:3000",
+    "https://ai-storybot.onrender.com"
+]
+
+CORS(app, resources={
+    r"/*": {
+        "origins": allowed_origins,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
+        "supports_credentials": True
+    }
+})
 
 # Initialize ChromaDB - moved inside a try-catch block
 db = None
@@ -252,3 +265,4 @@ if __name__ == '__main__':
     initialize_database()
     port = int(os.environ.get("PORT", 5000))  # Render sets this
     app.run(host="0.0.0.0", port=port, debug=False)  # must bind to 0.0.0.0
+
