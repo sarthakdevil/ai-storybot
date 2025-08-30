@@ -172,6 +172,7 @@ def generate_answer(db, query, session_id, token_id):
         print(f"Error generating answer: {e}")
         return "I'm sorry, I encountered an error while processing your request. Please try again."
 
+app = Flask(__name__)
 # Initialize Flask app
 allowed_origins = [
     "http://localhost:3000",
@@ -265,5 +266,6 @@ if __name__ == '__main__':
     initialize_database()
     port = int(os.environ.get("PORT", 5000))  # Render sets this
     app.run(host="0.0.0.0", port=port, debug=False)  # must bind to 0.0.0.0
+
 
 
