@@ -177,7 +177,7 @@ allowed_origins = [
     "http://localhost:3000",
     "http://localhost:3001", 
     "http://127.0.0.1:3000",
-    "https://ai-storybot.onrender.com"
+    "https://client-chatbot-two.vercel.app"
 ]
 
 CORS(app, resources={
@@ -265,4 +265,5 @@ if __name__ == '__main__':
     initialize_database()
     port = int(os.environ.get("PORT", 5000))  # Render sets this
     app.run(host="0.0.0.0", port=port, debug=False)  # must bind to 0.0.0.0
+
 
