@@ -12,6 +12,7 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "patool>=4.0.1",
     "psycopg2>=2.9.10",
+    "python-dotenv>=1.1.1",
     "rarfile>=4.2",
     "requests>=2.32.5",
 ]
