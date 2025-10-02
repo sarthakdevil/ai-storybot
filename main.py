@@ -137,8 +137,8 @@ You MUST respond with a valid JSON object in one of these two formats:
 - Maintain a creative, engaging, and child-friendly tone in your storytelling.
 
 **When to use each format:**
-- Use "story" type when: continuing a narrative, developing plot, telling a complete story segment, or providing descriptive storytelling content.
-- Use "question" type when: asked to ask users questions according to the story context.
+- Use "story" type when: continuing a narrative, developing plot, telling a complete story segment, or providing descriptive storytelling content when whole story ends write"The End".
+- Use "question" type when: the user requests to "let me choose next", "ask me questions", or when you want to engage the user with interactive choices about the story direction.
 
 **Your Response (JSON only):**
         """
