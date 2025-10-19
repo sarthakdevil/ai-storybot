@@ -342,23 +342,10 @@ def generate_answer(query, session_id, token_id):
         return "I'm sorry, I encountered an error while processing your request. Please try again."
 
 app = Flask(__name__)
-# Initialize Flask app
-allowed_origins = [
-    "http://localhost:3000",
-    "http://localhost:3001", 
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "https://client-chatbot-two.vercel.app"
-]
 
-CORS(app, resources={
-    r"/*": {
-        "origins": allowed_origins,
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
-        "supports_credentials": True
-    }
-})
+# Enable CORS for all origins
+CORS(app, origins="*", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
+     allow_headers=["Content-Type", "Authorization"], supports_credentials=True)
 
 # Add a test route to verify the server is working
 @app.route("/test", methods=["GET"])
@@ -366,7 +353,7 @@ def test():
     return jsonify({"status": "Server is running", "port": os.environ.get("PORT", 4000)})
 
 @app.route("/get-answer", methods=["POST", "OPTIONS"])
-@cross_origin(origins=allowed_origins, supports_credentials=True, methods=["GET", "POST", "OPTIONS"])
+@cross_origin(origins="*", supports_credentials=True, methods=["GET", "POST", "OPTIONS"])
 def func():
     try:
         print("=== GET-ANSWER REQUEST RECEIVED ===")
@@ -419,7 +406,7 @@ def func():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/get-sessionId", methods=["POST", "OPTIONS"])
-@cross_origin(origins=allowed_origins, supports_credentials=True, methods=["GET", "POST", "OPTIONS"])
+@cross_origin(origins="*", supports_credentials=True, methods=["GET", "POST", "OPTIONS"])
 def get_session_id():
     global session
     try:
