@@ -1,6 +1,4 @@
 import google.generativeai as genai
-from chromadb import Documents, EmbeddingFunction, Embeddings
-import chromadb
 import os
 import requests
 import json
@@ -24,72 +22,8 @@ history = None
 # Get base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Define Gemini Embedding Function
-class GeminiEmbeddingFunction(EmbeddingFunction):
-    def __init__(self):
-        pass
-    
-    def __call__(self, input: Documents) -> Embeddings:
-        gemini_api_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_api_key:
-            raise ValueError("Gemini API Key not provided. Please provide GEMINI_API_KEY as an environment variable")
-        
-        genai.configure(api_key=gemini_api_key)
-        model = "models/embedding-001"
-        title = "Custom query"
-        
-        # Handle both single strings and lists of strings
-        if isinstance(input, str):
-            input = [input]
-        elif not isinstance(input, list):
-            input = list(input)
-            
-        embeddings = []
-        for text in input:
-            result = genai.embed_content(
-                model=model, 
-                content=text, 
-                task_type="retrieval_document", 
-                title=title
-            )
-            embeddings.append(result["embedding"])
-        
-        return embeddings
-
-# Load ChromaDB collection
-def load_chroma_collection(path, name):
-    """
-    Loads or creates a Chroma collection from the specified path with the given name.
-
-    Parameters:
-    - path (str): The path to the Chroma database.
-    - name (str): The name of the collection within the Chroma database.
-
-    Returns:
-    - chromadb.Collection: The loaded or created Chroma Collection.
-    """
-    try:
-        # Ensure the directory exists
-        os.makedirs(path, exist_ok=True)
-        
-        chroma_client = chromadb.PersistentClient(path=path)
-        
-        try:
-            collection = chroma_client.get_collection(name=name, embedding_function=GeminiEmbeddingFunction())
-            print(f"Collection '{name}' loaded successfully.")
-        except Exception as e:
-            print(f"Collection '{name}' not found or invalid. Creating new collection. Error: {e}")
-            collection = chroma_client.create_collection(name=name, embedding_function=GeminiEmbeddingFunction())
-            print(f"Collection '{name}' created successfully.")
-            
-        return collection
-        
-    except Exception as e:
-        print(f"Error loading/creating ChromaDB collection: {e}")
-        raise e
-
-# Create RAG prompt
-def make_rag_prompt(query, session_id, token_id, relevant_passage):
+# Create storytelling prompt
+def make_rag_prompt(query, session_id, token_id):
     try:
         history = fetch_chat_history(session_id, token_id)
         print("Raw history:", history)
@@ -101,8 +35,6 @@ def make_rag_prompt(query, session_id, token_id, relevant_passage):
 
         print("Formatted History:\n", formatted_history)
 
-        escaped_passage = relevant_passage.replace("'", "").replace('"', "").replace("\n", " ").strip()
-
         prompt = f"""
 You are a highly intelligent and creative storytelling assistant, designed to enhance the parent-child reading experience and provide engaging, independent storytelling sessions.  
 
@@ -113,9 +45,6 @@ Below is the conversation history from previous interactions between the user an
 
 **User's Current Request:**
 '{query}'
-
-**Relevant Context or Story Passage:**
-'{escaped_passage}'
 
 **IMPORTANT - Response Format:**
 You MUST respond with a valid JSON object in one of these two formats:
@@ -137,7 +66,7 @@ You MUST respond with a valid JSON object in one of these two formats:
 - Maintain a creative, engaging, and child-friendly tone in your storytelling.
 
 **When to use each format:**
-- Use "story" type when: continuing a narrative, developing plot, telling a complete story segment, or providing descriptive storytelling content when whole story ends write"The End".
+- Use "story" type when: continuing a narrative, developing plot, telling a complete story segment, or providing descriptive storytelling content.
 - Use "question" type when: the user requests to "let me choose next", "ask me questions", or when you want to engage the user with interactive choices about the story direction.
 
 **Your Response (JSON only):**
@@ -147,16 +76,16 @@ You MUST respond with a valid JSON object in one of these two formats:
         return prompt
         
     except Exception as e:
-        print(f"Error creating RAG prompt: {e}")
+        print(f"Error creating storytelling prompt: {e}")
         # Fallback prompt without history
         return f"""
 You are a creative storytelling assistant for children.
 
 User's Request: '{query}'
 
-Context: '{relevant_passage}'
-
-Please provide an engaging, child-friendly response.
+Please provide an engaging, child-friendly response in JSON format:
+- For stories: {{"text": "Your story here", "type": "story"}}
+- For questions: {{"questions": [{{"question": "Your question?", "answers": ["Option1", "Option2"]}}], "type": "question"}}
         """
 
 # Generate answer using Gemini API
@@ -175,21 +104,7 @@ def generate_answer_api(prompt):
         print(f"Error generating answer with Gemini API: {e}")
         return f"I'm sorry, I encountered an error while generating a response. Please try again."
 
-# Retrieve relevant passage from ChromaDB
-def get_relevant_passage(query, db, n_results):
-    try:
-        if db.count() == 0:
-            print("Warning: ChromaDB collection is empty. No relevant passages found.")
-            return ["No relevant context available."]
-            
-        passage = db.query(query_texts=[query], n_results=n_results)['documents'][0]
-        return passage if passage else ["No relevant context found."]
-        
-    except Exception as e:
-        print(f"Error retrieving relevant passage: {e}")
-        return ["Error retrieving context."]
-
-# Parse JSON response from AI
+# Generate answer using Gemini API
 def parse_ai_json_response(response_text):
     try:
         import json
@@ -415,11 +330,10 @@ def generate_story_image(story_text):
         print(f"Error generating image: {e}")
         return None
 
-# Generate answer from retrieved text
-def generate_answer(db, query, session_id, token_id):
+# Generate answer from user query
+def generate_answer(query, session_id, token_id):
     try:
-        relevant_text = get_relevant_passage(query, db, n_results=3)
-        prompt = make_rag_prompt(query, session_id, token_id, relevant_passage="".join(relevant_text))
+        prompt = make_rag_prompt(query, session_id, token_id)
         answer = generate_answer_api(prompt)
         return answer
         
@@ -450,33 +364,6 @@ CORS(app, resources={
 @app.route("/test", methods=["GET"])
 def test():
     return jsonify({"status": "Server is running", "port": os.environ.get("PORT", 4000)})
-
-# Initialize ChromaDB - moved inside a try-catch block
-db = None
-
-def initialize_database():
-    global db
-    try:
-        print("=== DATABASE INITIALIZATION ===")
-        # Point to the extracted ChromaDB collection
-        db_path = os.path.join(BASE_DIR, "chroma_database_edumate")
-        print(f"Database path: {db_path}")
-        print(f"Path exists: {os.path.exists(db_path)}")
-        
-        db = load_chroma_collection(path=db_path, name="edumate")
-        print("Database initialized successfully!")
-        print(f"Collection name: {db.name}")
-        print(f"Number of items in collection: {db.count()}")
-        return True
-        
-    except Exception as e:
-        print(f"Failed to initialize database: {e}")
-        print(f"Error type: {type(e)}")
-        import traceback
-        print(f"Full traceback: {traceback.format_exc()}")
-        print("The application will continue but database functionality will be limited.")
-        db = None
-        return False
 
 @app.route("/get-answer", methods=["POST"])
 def func():
@@ -511,13 +398,9 @@ def func():
             print("Empty question provided")
             return jsonify({"error": "No question provided"}), 400
             
-        if db is None:
-            print("Database not initialized")
-            return jsonify({"error": "Database not initialized"}), 500
-            
         print("=== Starting AI response generation ===")
         # Generate the AI response
-        answer = generate_answer(db, question, session_id, token_id)
+        answer = generate_answer(question, session_id, token_id)
         print(f"AI raw response: {answer}")
         
         # Parse the JSON response from AI
@@ -556,12 +439,11 @@ def get_session_id():
 
 @app.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "healthy", "database_initialized": db is not None})
+    return jsonify({"status": "healthy"})
 
 if __name__ == '__main__':
     import os
     print("Starting application...")
-    initialize_database()
     port = int(os.environ.get("PORT", 4000))  # Default to port 4000
     print(f"Starting Flask app on port {port}")
     app.run(host="0.0.0.0", port=port, debug=True)  # Enable debug for better error messages
