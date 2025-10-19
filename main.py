@@ -6,7 +6,7 @@ import time
 import base64
 from io import BytesIO
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from postgres import fetch_chat_history
 
 # Set up environment variable (use dotenv in production)
@@ -365,7 +365,8 @@ CORS(app, resources={
 def test():
     return jsonify({"status": "Server is running", "port": os.environ.get("PORT", 4000)})
 
-@app.route("/get-answer", methods=["POST"])
+@app.route("/get-answer", methods=["POST", "OPTIONS"])
+@cross_origin(origins=allowed_origins, supports_credentials=True, methods=["GET", "POST", "OPTIONS"])
 def func():
     try:
         print("=== GET-ANSWER REQUEST RECEIVED ===")
@@ -417,22 +418,37 @@ def func():
         print(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/get-sessionId", methods=["POST"])
+@app.route("/get-sessionId", methods=["POST", "OPTIONS"])
+@cross_origin(origins=allowed_origins, supports_credentials=True, methods=["GET", "POST", "OPTIONS"])
 def get_session_id():
     global session
     try:
-        session_id = request.args.get("session_id")
-        token_id = request.args.get("token")
-        
+        # Accept session_id and token from query params or JSON body.
+        session_id = request.args.get("session_id") or None
+        # account for clients that may send ?token or ??token
+        token_id = request.args.get("token") or request.args.get("?token") or None
+
+        # If not present in query params, try JSON body (use silent=True so OPTIONS preflight doesn't raise)
+        data = None
+        try:
+            data = request.get_json(silent=True)
+        except Exception:
+            data = None
+
+        if not session_id and data:
+            session_id = data.get("session_id") or data.get("sessionId")
+        if not token_id and data:
+            token_id = data.get("token") or data.get("auth_token") or data.get("token_id")
+
         print(f"Received session_id: {session_id}, token: {token_id}")
-        
+
         if not session_id:
             return jsonify({"error": "No session_id provided"}), 400
-            
-        session = session_id 
+
+        session = session_id
         print(f"Session set to: {session}")
         return jsonify({"sessionId": session})
-    
+
     except Exception as e:
         print(f"Error occurred in /get-sessionId: {e}")
         return jsonify({"error": str(e)}), 500
